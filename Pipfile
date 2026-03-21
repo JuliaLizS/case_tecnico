@@ -7,8 +7,10 @@ name = "pypi"
 sentence-transformers = "*"
 fastmcp = "*"
 faiss-cpu = "*"
+email-validator = "*"
 
 [dev-packages]
+pytest = "*"
 
 [requires]
 python_version = "3.11"

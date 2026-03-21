@@ -1,11 +1,22 @@
 # MCP Server de usuários (com busca semântica)
 
-Este projeto expõe 3 tools MCP para trabalhar com usuários:
+Este projeto expõe 4 tools MCP para trabalhar com usuários:
 - criar usuário
 - buscar usuário por ID
 - buscar usuários por similaridade semântica
+- listar usuários com paginação
 
 A ideia é simples: os dados ficam no SQLite (`users.db`) e os vetores de embedding ficam no FAISS (`faiss_index/`).
+
+## Quickstart (3 comandos)
+
+```bash
+pipenv install
+pipenv run python server.py
+pipenv run pytest tools_tests -q
+```
+
+> Dica: rode o `pytest` em outro terminal se o servidor estiver em execução no primeiro.
 
 ## O que tem aqui
 
@@ -15,6 +26,7 @@ A ideia é simples: os dados ficam no SQLite (`users.db`) e os vetores de embedd
 - `embeddings.py`: geração de embedding com `sentence-transformers`
 - `vector_store.py`: persistência e consulta no FAISS
 - `models.py`: schemas Pydantic
+- `logging_config.py`: logging estruturado em JSON
 - `tools_tests/`: testes das tools
 
 ---
@@ -46,7 +58,7 @@ docker run -p 8000:8000 case-tecnico-mcp
 
 Observação: a tabela `users` é criada automaticamente no startup do servidor.
 
-### 4) Persistir dados entre execuções (opcional, mas recomendado)
+### 3) Persistir dados entre execuções (opcional, mas recomendado)
 
 Sem volume, o banco/índice podem se perder quando o container for removido. Para manter dados:
 
@@ -182,6 +194,40 @@ Observação: no score do FAISS (L2), quanto menor, mais próximo semanticamente
 
 ---
 
+## 4) `list_users`
+
+Lista usuários com paginação por `limit` e `offset`.
+
+### Entrada
+
+```json
+{
+  "limit": 10,
+  "offset": 0
+}
+```
+
+### Saída (exemplo)
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Ana Silva",
+    "email": "ana.silva@example.com",
+    "description": "Engenheira backend Python com foco em APIs"
+  },
+  {
+    "id": 2,
+    "name": "Carlos Mendes",
+    "email": "carlos.mendes@example.com",
+    "description": "Cientista de dados com foco em machine learning e análise de dados"
+  }
+]
+```
+
+---
+
 ## Como rodar os testes
 
 Os testes estão na pasta `tools_tests/`.
@@ -191,24 +237,23 @@ Os testes estão na pasta `tools_tests/`.
 Da raiz do projeto:
 
 ```bash
-pipenv run python tools_tests/test_tools.py
+pipenv run pytest tools_tests -q
 ```
 
 Ou de dentro da pasta de testes:
 
 ```bash
 cd tools_tests
-python test_tools.py
+pytest -q
 ```
 
 ### Rodar por etapa (separado)
 
 ```bash
-cd tools_tests
-
-python test_create_user.py
-python test_get_user.py
-python test_search_users.py
+pipenv run pytest tools_tests/test_create_user.py -q
+pipenv run pytest tools_tests/test_get_user.py -q
+pipenv run pytest tools_tests/test_search_users.py -q
+pipenv run pytest tools_tests/test_list_users.py -q
 ```
 
 ### O que cada teste cobre
@@ -228,11 +273,16 @@ python test_search_users.py
   - validação de `top_k`
   - query vazia sem quebrar execução
 
+- `test_list_users.py`
+  - listagem básica
+  - validação de paginação (`limit`/`offset`)
+  - offset fora do range retorna lista vazia
+
 ---
 
 ## Dicas para quem vai estudar/evoluir o projeto
 
-- A tabela `users` é criada automaticamente no startup do servidor e também protegida no primeiro `create_user`.
+- A tabela `users` é criada automaticamente na inicialização do serviço (fase de startup).
 - Se mudar o schema de usuário, revise:
   - `models.py`
   - `services/user_service.py`
@@ -241,7 +291,8 @@ python test_search_users.py
   - atualizar `server.py`
   - atualizar `services/user_service.py`
   - criar/ajustar teste correspondente
-  - registrar no `tools_tests/test_tools.py`
+  - garantir cobertura em `tools_tests/` e validar com `pytest`
+- O índice FAISS usa caminho absoluto baseado na raiz do projeto, então não depende do diretório de execução.
 
 ---
 

@@ -1,6 +1,11 @@
 # criação da tabela de usuários
 import sqlite3
-from connect import create_connection
+import logging
+from database.connect import create_connection
+from logging_config import configure_logging
+
+configure_logging()
+logger = logging.getLogger(__name__)
 
 
 def create_table():
@@ -17,28 +22,13 @@ def create_table():
                 )
             ''')
             conn.commit()
-            print("Tabela de usuários criada com sucesso!")
+            logger.info("Tabela users verificada/criada", extra={"event": "users_table_ready"})
         except sqlite3.Error as e:
-            print(f"Erro ao criar a tabela: {e}")
+            logger.error("Erro ao criar a tabela users", extra={"event": "users_table_error", "error": str(e)})
         finally:
             conn.close()
     else:
-        print("Erro! Não foi possível estabelecer a conexão com o banco de dados.")
-
-def create_user(name, email, description):
-    conn = create_connection()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO users (name, email, description)
-                VALUES (?, ?, ?)
-            ''', (name, email, description))
-            conn.commit()
-            print("Usuário criado com sucesso!")
-        except sqlite3.Error as e:
-            print(f"Erro ao criar o usuário: {e}")
-        finally:
-            conn.close()
-    else:
-        print("Erro! Não foi possível estabelecer a conexão com o banco de dados.")
+        logger.error(
+            "Não foi possível estabelecer conexão para criar a tabela",
+            extra={"event": "users_table_connection_error"}
+        )

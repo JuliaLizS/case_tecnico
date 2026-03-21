@@ -2,23 +2,31 @@
 
 import logging
 from fastmcp import FastMCP
-from models import (CreateUserRequest, SearchUserRequest)
+from models import (CreateUserRequest, SearchUserRequest, ListUsersRequest)
 from services.user_service import user_service
+from logging_config import configure_logging
 
-logging.basicConfig(level=logging.INFO)
+configure_logging()
+logger = logging.getLogger(__name__)
 
 server = FastMCP()
 
 # Tool 1 - criar usuario
 @server.tool()
-def create_user(data):
+def create_user(data: CreateUserRequest):
     try:
         user_id = user_service.create_user(data)
-        logging.info(f"[MCP] Usuário criado com ID: {user_id}")
+        logger.info(
+            "Usuário criado com sucesso via tool create_user",
+            extra={"event": "create_user_success", "tool": "create_user", "user_id": user_id}
+        )
 
         return {'message': "Usuário criado com sucesso", 'user_id': user_id}
     except Exception as e:
-        logging.error(f"[MCP] Erro ao criar usuário: {e}")
+        logger.error(
+            "Erro ao criar usuário via tool create_user",
+            extra={"event": "create_user_error", "tool": "create_user", "error": str(e)}
+        )
         return {'error': str(e)}
 
 # Tool 2 - buscar usuario
@@ -28,29 +36,58 @@ def get_user(user_id: int):
         user = user_service.get_user(user_id)
 
         if user is None:
-            logging.warning(f"[MCP] Usuário com ID {user_id} não encontrado.")
+            logger.warning(
+                "Usuário não encontrado via tool get_user",
+                extra={"event": "get_user_not_found", "tool": "get_user", "user_id": user_id}
+            )
             return {'error': f"Usuario com ID {user_id} não encontrado"}
 
         return user
         
     except Exception as e:
-        logging.error(f"[MCP] Erro ao buscar usuário: {e}")
+        logger.error(
+            "Erro ao buscar usuário via tool get_user",
+            extra={"event": "get_user_error", "tool": "get_user", "user_id": user_id, "error": str(e)}
+        )
         return {'error': str(e)}
 
 # Tool 3 - busca semantica
 @server.tool()
-def search_users(data):
+def search_users(data: SearchUserRequest):
     try:
         results = user_service.search_users(data)
 
         return results
     
     except Exception as e:
-        logging.error(f"[MCP] Erro na busca semântica: {e}")
+        logger.error(
+            "Erro na busca semântica via tool search_users",
+            extra={"event": "search_users_error", "tool": "search_users", "top_k": data.top_k, "error": str(e)}
+        )
+        return {'error': str(e)}
+
+
+# Tool 4 - listar usuarios
+@server.tool()
+def list_users(data: ListUsersRequest):
+    try:
+        users = user_service.list_users(data)
+        return users
+    except Exception as e:
+        logger.error(
+            "Erro ao listar usuários via tool list_users",
+            extra={
+                "event": "list_users_error",
+                "tool": "list_users",
+                "limit": data.limit,
+                "offset": data.offset,
+                "error": str(e)
+            }
+        )
         return {'error': str(e)}
 
 
 # Iniciar o servidor MCP
 if __name__ == "__main__":
-    logging.info("Iniciando o MCP Server...")
+    logger.info("Iniciando o MCP Server", extra={"event": "server_start"})
     server.run()

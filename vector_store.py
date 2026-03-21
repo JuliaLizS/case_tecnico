@@ -11,7 +11,8 @@ import json
 # corretamente armazenada no SQLite, mantendo a separação 
 # de responsabilidades.”
 
-FAISS_DIR = 'faiss_index'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FAISS_DIR = os.path.join(BASE_DIR, 'faiss_index')
 INDEX_FILE = os.path.join(FAISS_DIR, 'index.faiss')
 IDMAP_FILE = os.path.join(FAISS_DIR, 'id_map.json')
 

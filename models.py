@@ -16,3 +16,7 @@ class UserResponse(BaseModel):
 class SearchUserRequest(BaseModel):
     query: str
     top_k: int = 5
+
+class ListUsersRequest(BaseModel):
+    limit: int = 10
+    offset: int = 0

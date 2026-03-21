@@ -1,11 +1,19 @@
 import sqlite3
+import logging
 from database.connect import create_connection
+from database.database import create_table
 from embeddings import generate_embedding
 from vector_store import vector_store
-from models import (CreateUserRequest, UserResponse, SearchUserRequest)
-import logging
+from models import (CreateUserRequest, UserResponse, SearchUserRequest, ListUsersRequest)
+from logging_config import configure_logging
+
+configure_logging()
+logger = logging.getLogger(__name__)
 
 class UserService:
+
+    def __init__(self):
+        create_table()
 
     # criar usuario
     def create_user(self, data: CreateUserRequest) -> int:
@@ -28,11 +36,19 @@ class UserService:
 
             # Salvar vetor
             vector_store.add_vector(user_id, embedding)
-            logging.info(f"Usuário criado com ID {user_id} e embedding adicionado ao vetor store.")
+            logger.info(
+                "Usuário criado e embedding adicionado ao vector store",
+                extra={"event": "user_create_success", "user_id": user_id}
+            )
             return user_id
         
         except sqlite3.Error as e:
-            logging.error(f"Erro ao criar o usuário: {e}")
+            conn.rollback()
+            logger.error(
+                "Erro ao criar usuário no banco",
+                extra={"event": "user_create_db_error", "error": str(e)}
+            )
+            raise
         finally:
             conn.close()
 
@@ -50,7 +66,10 @@ class UserService:
             row = cur.fetchone()
 
             if not row:
-                logging.warning(f"Usuário com ID {user_id} não encontrado.")
+                logger.warning(
+                    "Usuário não encontrado na busca por ID",
+                    extra={"event": "user_get_not_found", "user_id": user_id}
+                )
                 return None
             
             return UserResponse(
@@ -61,7 +80,11 @@ class UserService:
             )
 
         except sqlite3.Error as e:
-            logging.error(f"Erro ao buscar o usuário: {e}")
+            logger.error(
+                "Erro ao buscar usuário por ID no banco",
+                extra={"event": "user_get_db_error", "user_id": user_id, "error": str(e)}
+            )
+            raise
         finally:
             conn.close()
 
@@ -72,7 +95,10 @@ class UserService:
         results = vector_store.search(query_emb, data.top_k)
 
         if not results:
-            logging.info("Nenhum usuário encontrado para a consulta.")
+            logger.info(
+                "Busca semântica sem resultados",
+                extra={"event": "search_users_empty", "top_k": data.top_k, "result_count": 0}
+            )
             return []
         
         conn = create_connection()
@@ -89,7 +115,10 @@ class UserService:
                 row = cur.fetchone()
                 
                 if not row:
-                    logging.warning(f"Usuário com ID {user_id} não encontrado durante a busca semântica.")
+                    logger.warning(
+                        "Usuário referenciado no índice não encontrado no banco",
+                        extra={"event": "search_users_user_missing", "user_id": user_id}
+                    )
                     continue
 
                 final_output.append({
@@ -102,11 +131,51 @@ class UserService:
                 })
 
             final_output.sort(key=lambda x: x["score"])
+            logger.info(
+                "Busca semântica executada com sucesso",
+                extra={"event": "search_users_success", "top_k": data.top_k, "result_count": len(final_output)}
+            )
             return final_output     
     
         except sqlite3.Error as e:
-            logging.error(f"Erro ao buscar o usuário com ID {user_id}: {e}")
+            logger.error(
+                "Erro ao consultar usuários durante busca semântica",
+                extra={"event": "search_users_db_error", "error": str(e)}
+            )
+            raise
         
+        finally:
+            conn.close()
+
+
+    # listar usuarios com paginacao
+    def list_users(self, data: ListUsersRequest):
+        conn = create_connection()
+        cur = conn.cursor()
+
+        try:
+            cur.execute(
+                'SELECT id, name, email, description FROM users LIMIT ? OFFSET ?',
+                (data.limit, data.offset)
+            )
+            rows = cur.fetchall()
+
+            return [
+                {"id": r[0], "name": r[1], "email": r[2], "description": r[3]}
+                for r in rows
+            ]
+
+        except sqlite3.Error as e:
+            logger.error(
+                "Erro ao listar usuários no banco",
+                extra={
+                    "event": "list_users_db_error",
+                    "limit": data.limit,
+                    "offset": data.offset,
+                    "error": str(e)
+                }
+            )
+            raise
         finally:
             conn.close()
 

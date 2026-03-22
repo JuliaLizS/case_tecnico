@@ -13,5 +13,9 @@ RUN pip install pipenv && pipenv install --deploy --system
 COPY . .
 
 EXPOSE 8000
+EXPOSE 8501
 
-CMD ["python", "server.py"]
+ENV MCP_TRANSPORT=http
+ENV APP_MODE=mcp
+
+CMD ["sh", "-c", "if [ \"$APP_MODE\" = \"streamlit\" ]; then streamlit run app.py --server.address=0.0.0.0 --server.port=8501; else python server.py; fi"]git status

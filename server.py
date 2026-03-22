@@ -89,5 +89,10 @@ def list_users(data: ListUsersRequest):
 
 # Iniciar o servidor MCP
 if __name__ == "__main__":
-    logger.info("Iniciando o MCP Server", extra={"event": "server_start"})
-    server.run()
+    import os
+    transport = os.getenv("MCP_TRANSPORT", "stdio")
+    logger.info("Iniciando o MCP Server", extra={"event": "server_start", "transport": transport})
+    if transport == "http":
+        server.run(transport="streamable-http", host="0.0.0.0", port=8000)
+    else:
+        server.run()

@@ -8,6 +8,7 @@ sentence-transformers = "*"
 fastmcp = "*"
 faiss-cpu = "*"
 email-validator = "*"
+streamlit = "*"
 
 [dev-packages]
 pytest = "*"

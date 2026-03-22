@@ -12,7 +12,7 @@ A ideia é simples: os dados ficam no SQLite (`users.db`) e os vetores de embedd
 
 ```bash
 pipenv install
-pipenv run python server.py
+pipenv run streamlit run app.py
 pipenv run pytest tools_tests -q
 ```
 
@@ -21,6 +21,7 @@ pipenv run pytest tools_tests -q
 ## O que tem aqui
 
 - `server.py`: sobe o servidor MCP e registra as tools
+- `app.py`: interface Streamlit para testar as funcionalidades
 - `services/user_service.py`: regras de negócio
 - `database/connect.py` e `database/database.py`: conexão SQLite e criação da tabela
 - `embeddings.py`: geração de embedding com `sentence-transformers`
@@ -42,7 +43,7 @@ Para rodar em container:
 
 ---
 
-## Rodando com Docker (recomendado para quem quer testar rápido)
+## Rodando com Docker
 
 ### 1) Build da imagem
 
@@ -50,20 +51,41 @@ Para rodar em container:
 docker build -t case-tecnico-mcp .
 ```
 
-### 2) Subir o servidor
+### 2) Subir no modo MCP (server)
 
 ```bash
-docker run -p 8000:8000 case-tecnico-mcp
+docker run -p 8000:8000 \
+  -e APP_MODE=mcp \
+  -v $(pwd)/users.db:/app/users.db \
+  -v $(pwd)/faiss_index:/app/faiss_index \
+  case-tecnico-mcp
 ```
 
-Observação: a tabela `users` é criada automaticamente no startup do servidor.
+### 3) Subir no modo Streamlit (front para testes)
 
-### 3) Persistir dados entre execuções (opcional, mas recomendado)
+```bash
+docker run -p 8501:8501 \
+  -e APP_MODE=streamlit \
+  -v $(pwd)/users.db:/app/users.db \
+  -v $(pwd)/faiss_index:/app/faiss_index \
+  case-tecnico-mcp
+```
+
+Abra no navegador:
+- `http://localhost:8501` (Streamlit)
+
+Observações:
+- A tabela `users` é criada automaticamente no startup.
+- No primeiro boot, o modelo de embedding pode demorar para baixar do Hugging Face.
+- Docker Compose não é obrigatório neste projeto (apenas um serviço).
+
+### 4) Persistir dados entre execuções (recomendado)
 
 Sem volume, o banco/índice podem se perder quando o container for removido. Para manter dados:
 
 ```bash
 docker run -p 8000:8000 \
+  -e APP_MODE=mcp \
   -v $(pwd)/users.db:/app/users.db \
   -v $(pwd)/faiss_index:/app/faiss_index \
   case-tecnico-mcp
@@ -85,13 +107,19 @@ pipenv install
 pipenv shell
 ```
 
-### 3) Subir o servidor
+### 3) Rodar em modo MCP (server)
 
 ```bash
 python server.py
 ```
 
-Observação: a tabela `users` é criada automaticamente no startup do servidor.
+### 4) Rodar em modo Streamlit (front para testes)
+
+```bash
+streamlit run app.py
+```
+
+Observação: a tabela `users` é criada automaticamente no startup do serviço.
 
 ---
 
